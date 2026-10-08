@@ -20,5 +20,5 @@
     "initialMarketCapWei": "2500000000000000000000",
     "remainderTo": "0x000000000000000000000000000000000000dead"
   },
-  "notes": "Ethereum mainnet. The mandatory pool fee 3000 takes precedence over the conflicting 1.25% description. The external launch factory distributes the swarm share, seeds the pool and forwards any remainder; the token mints its entire supply to its deployer. initialPrice is provenance only; derive the opening price from economics and deployed currency order."
+  "notes": "Ethereum mainnet (chainId 1). IMDTToken is a standard ERC-20 with no constructor arguments. It mints exactly 1000000000000000000000000000 minor units once to msg.sender at deployment. It has no owner, admin functions, subsequent minting, transfer taxes or mutable launch settings. No application contracts are included. The mandatory pool fee is 3000 (0.3%) with tickSpacing 60, superseding the earlier 1.25% description. The pool pairs IMDT with IMD through PoolManager 0x000000000004444c5dc75cB358380D2e3dE08A90. Distribution and pool seeding are external to IMDTToken. initialPrice is decimal sqrtPriceX96 for IMDT as currency0 and is provenance only; the deployer derives the opening price from economics.initialMarketCapWei, token.totalSupply and the deployed currency order."
 }
