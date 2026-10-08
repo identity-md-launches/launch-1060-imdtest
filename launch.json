@@ -1,0 +1,24 @@
+{
+  "kind": "custom_token",
+  "token": {
+    "contract": "IMDTToken",
+    "name": "IMDTEST",
+    "symbol": "IMDT",
+    "decimals": 18,
+    "constructorArgs": [],
+    "totalSupply": "1000000000000000000000000000"
+  },
+  "contracts": [],
+  "pool": {
+    "pairedCurrency": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+    "fee": 3000,
+    "tickSpacing": 60,
+    "initialPrice": "125270724187523965593206900"
+  },
+  "economics": {
+    "poolBps": 9000,
+    "initialMarketCapWei": "2500000000000000000000",
+    "remainderTo": "0x000000000000000000000000000000000000dead"
+  },
+  "notes": "Ethereum mainnet. The mandatory pool fee 3000 takes precedence over the conflicting 1.25% description. The external launch factory distributes the swarm share, seeds the pool and forwards any remainder; the token mints its entire supply to its deployer. initialPrice is provenance only; derive the opening price from economics and deployed currency order."
+}
