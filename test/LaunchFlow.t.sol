@@ -49,11 +49,19 @@ contract LaunchFlowTest is Test {
     }
 
     function test_SeedAndSwapsWhenTokenIsCurrency0() public {
-        _launchAndTrade(true);
+        _launchAndTrade(true, 0.01 ether);
     }
 
     function test_SeedAndSwapsWhenTokenIsCurrency1() public {
-        _launchAndTrade(false);
+        _launchAndTrade(false, 0.01 ether);
+    }
+
+    /// forge-config: default.fuzz.runs = 1000
+    function testFuzz_LaunchSettlementIsExactInEitherCurrencyOrder(bool tokenIsZero, uint256 payment) public {
+        // Keep trades within the seeded liquidity, while exploring minor units
+        // and rounding over nine orders of magnitude. No RPC is required.
+        payment = bound(payment, 1 gwei, 1 ether);
+        _launchAndTrade(tokenIsZero, payment);
     }
 
     function test_UnauthorizedCallbackRejected() public {
@@ -89,25 +97,30 @@ contract LaunchFlowTest is Test {
         manager.swap(key, SwapParams(false, -int256(0.01 ether), TickMath.MAX_SQRT_PRICE - 1), "");
     }
 
-    function _launchAndTrade(bool tokenIsZero) private {
+    function _launchAndTrade(bool tokenIsZero, uint256 payment) private {
         (IMDTToken token, PoolKey memory key) = _seed(tokenIsZero);
         uint256 seeded = token.balanceOf(MANAGER);
-        pair.mint(address(trader), 1 ether);
-        BalanceDelta boughtDelta = trader.swap(key, !tokenIsZero, 0.01 ether);
+        uint256 traderFunds = payment * 100;
+        pair.mint(address(trader), traderFunds);
+        BalanceDelta boughtDelta = trader.swap(key, !tokenIsZero, payment);
         uint256 bought = token.balanceOf(address(trader));
         assertGt(bought, 0);
         assertEq(bought, uint256(int256(tokenIsZero ? boughtDelta.amount0() : boughtDelta.amount1())));
+        assertEq(uint256(-int256(tokenIsZero ? boughtDelta.amount1() : boughtDelta.amount0())), payment);
         assertEq(token.balanceOf(MANAGER), seeded - bought);
-        assertEq(pair.balanceOf(address(trader)), 0.99 ether);
-        assertEq(pair.balanceOf(MANAGER), 0.01 ether);
+        assertEq(pair.balanceOf(address(trader)), traderFunds - payment);
+        assertEq(pair.balanceOf(MANAGER), payment);
 
         BalanceDelta soldDelta = trader.swap(key, tokenIsZero, bought);
         assertEq(uint256(-int256(tokenIsZero ? soldDelta.amount0() : soldDelta.amount1())), bought);
+        uint256 returnedPair = uint256(int256(tokenIsZero ? soldDelta.amount1() : soldDelta.amount0()));
         assertEq(token.balanceOf(address(trader)), 0);
         assertEq(token.balanceOf(MANAGER), seeded);
-        assertGt(pair.balanceOf(address(trader)), 0.99 ether);
-        assertLt(pair.balanceOf(address(trader)), 1 ether); // AMM fee, never an IMDT transfer tax.
-        assertEq(pair.balanceOf(address(trader)) + pair.balanceOf(MANAGER), 1 ether);
+        assertGt(returnedPair, 0);
+        assertEq(pair.balanceOf(address(trader)), traderFunds - payment + returnedPair);
+        assertEq(pair.balanceOf(MANAGER), payment - returnedPair);
+        assertLt(pair.balanceOf(address(trader)), traderFunds); // AMM fee, never an IMDT transfer tax.
+        assertEq(pair.balanceOf(address(trader)) + pair.balanceOf(MANAGER), traderFunds);
         assertEq(token.balanceOf(claimant), SWARM);
         assertEq(token.balanceOf(MANAGER) + token.balanceOf(claimant) + token.balanceOf(REMAINDER), SUPPLY);
         assertEq(token.totalSupply(), SUPPLY);

@@ -171,39 +171,57 @@ contract IMDTTokenTest is Test {
     }
 
     function test_NoOwnerMintBurnOrAdminEntryPointsForAnyone() public {
-        string[20] memory signatures = [
-            "owner()",
-            "mint(address,uint256)",
-            "mint(uint256)",
-            "mint()",
-            "burn(uint256)",
-            "burnFrom(address,uint256)",
-            "transferOwnership(address)",
-            "renounceOwnership()",
-            "setOwner(address)",
-            "setMinter(address)",
-            "pause()",
-            "unpause()",
-            "blacklist(address)",
-            "freeze(address)",
-            "seize(address)",
-            "setFee(uint256)",
-            "upgradeTo(address)",
-            "initialize(address)",
-            "grantRole(bytes32,address)",
-            "setTransfersEnabled(bool)"
+        // Encode valid arguments for each selector: malformed booleans or a
+        // burn above the caller's balance could hide an existing admin method.
+        bytes[26] memory calls = [
+            abi.encodeWithSignature("owner()"),
+            abi.encodeWithSignature("mint(address,uint256)", alice, uint256(1)),
+            abi.encodeWithSignature("mint(uint256)", uint256(1)),
+            abi.encodeWithSignature("mint()"),
+            abi.encodeWithSignature("burn(uint256)", uint256(1)),
+            abi.encodeWithSignature("burnFrom(address,uint256)", alice, uint256(1)),
+            abi.encodeWithSignature("transferOwnership(address)", bob),
+            abi.encodeWithSignature("renounceOwnership()"),
+            abi.encodeWithSignature("setOwner(address)", bob),
+            abi.encodeWithSignature("setMinter(address)", bob),
+            abi.encodeWithSignature("pause()"),
+            abi.encodeWithSignature("unpause()"),
+            abi.encodeWithSignature("blacklist(address)", alice),
+            abi.encodeWithSignature("freeze(address)", alice),
+            abi.encodeWithSignature("seize(address)", alice),
+            abi.encodeWithSignature("setFee(uint256)", uint256(12_500)),
+            abi.encodeWithSignature("upgradeTo(address)", address(token)),
+            abi.encodeWithSignature("initialize(address)", bob),
+            abi.encodeWithSignature("grantRole(bytes32,address)", bytes32(0), bob),
+            abi.encodeWithSignature("setTransfersEnabled(bool)", false),
+            abi.encodeWithSignature("setBlacklist(address,bool)", alice, true),
+            abi.encodeWithSignature("setBlocked(address,bool)", alice, true),
+            abi.encodeWithSignature("setName(string)", "Changed"),
+            abi.encodeWithSignature("setSymbol(string)", "OTHER"),
+            abi.encodeWithSignature("setDecimals(uint8)", uint8(6)),
+            abi.encodeWithSignature("initialize()")
         ];
         token.transfer(alice, 100);
-        for (uint256 i; i < signatures.length; ++i) {
-            bytes memory data = abi.encodeWithSignature(signatures[i], alice, uint256(100));
-            (bool ok,) = address(token).call(data);
-            assertFalse(ok, signatures[i]);
+        token.transfer(bob, 100);
+        vm.startPrank(alice);
+        token.approve(address(this), 100);
+        token.approve(bob, 100);
+        vm.stopPrank();
+        for (uint256 i; i < calls.length; ++i) {
+            (bool ok,) = address(token).call(calls[i]);
+            assertFalse(ok, string.concat("deployer reached admin selector ", vm.toString(bytes4(calls[i]))));
             vm.prank(bob);
-            (ok,) = address(token).call(data);
-            assertFalse(ok, signatures[i]);
+            (ok,) = address(token).call(calls[i]);
+            assertFalse(ok, string.concat("holder reached admin selector ", vm.toString(bytes4(calls[i]))));
             assertEq(token.totalSupply(), SUPPLY);
             assertEq(token.balanceOf(alice), 100);
+            assertEq(token.balanceOf(bob), 100);
+            assertEq(token.allowance(alice, address(this)), 100);
+            assertEq(token.allowance(alice, bob), 100);
         }
+        assertEq(token.name(), "IMDTEST");
+        assertEq(token.symbol(), "IMDT");
+        assertEq(token.decimals(), 18);
         vm.prank(alice);
         assertTrue(token.transfer(bob, 100));
     }
